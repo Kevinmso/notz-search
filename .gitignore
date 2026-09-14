@@ -1,0 +1,6 @@
+/notz-search
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
