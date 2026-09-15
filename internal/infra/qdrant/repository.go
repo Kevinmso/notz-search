@@ -59,7 +59,41 @@ func (r *NoteRepository) Upsert(note domain.Note) error {
 	return nil
 }
 
-func (r *NoteRepository) Search(vector []float32, limit int) ([]domain.Note, error){
-	return nil, nil
+func (r *NoteRepository) Search(vector []float32, limit int) ([]domain.Note, error) {
+	scoredPoints, err := r.client.Query(context.Background(), &qdrant.QueryPoints{
+		CollectionName: COLLECTION_NAME,
+		Query:          qdrant.NewQuery(vector...),
+		Limit:          qdrant.PtrOf(uint64(limit)),
+		WithPayload:    qdrant.NewWithPayload(true),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to search points: %w", err)
+	}
+
+	notes := make([]domain.Note, len(scoredPoints))
+	for i, sp := range scoredPoints {
+		payload := sp.Payload
+
+		linksTo := make([]string, 0)
+		if list := payload["links_to"].GetListValue(); list != nil {
+			for _, v := range list.Values {
+				linksTo = append(linksTo, v.GetStringValue())
+			}
+		}
+
+		createdAt, _ := time.Parse(time.RFC3339, payload["created_at"].GetStringValue())
+		updatedAt, _ := time.Parse(time.RFC3339, payload["updated_at"].GetStringValue())
+
+		notes[i] = domain.Note{
+			ID:        sp.Id.GetUuid(),
+			Title:     payload["title"].GetStringValue(),
+			Text:      payload["text"].GetStringValue(),
+			LinksTo:   linksTo,
+			CreatedAt: createdAt,
+			UpdatedAt: updatedAt,
+		}
+	}
+
+	return notes, nil
 }
 
