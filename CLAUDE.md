@@ -53,13 +53,19 @@ independente da escolha.
 
 ```
 search-service/
-  cmd/server/main.go        → sobe o servidor HTTP
-  internal/qdrant/          → cliente/wrapper do Qdrant (conectar, criar coleção, upsert, buscar)
-  internal/embeddings/      → função que transforma texto em vetor
-  internal/handlers/        → os endpoints HTTP
-  docker-compose.yml        → Qdrant local pra dev
+  cmd/main.go                    → sobe o servidor HTTP
+  internal/domain/               → entidades e interfaces (ports), sem dependência de infra
+    note.go                      → struct Note
+  internal/infra/
+    qdrant/                      → cliente/wrapper do Qdrant (conectar, criar coleção, upsert, buscar)
+    embeddings/                  → função que transforma texto em vetor
+  internal/handlers/             → os endpoints HTTP
+  docker-compose.yml             → Qdrant local pra dev
   go.mod
 ```
+
+Adapters de infra (`internal/infra/*`) implementam interfaces definidas em `internal/domain`
+(ex. `NoteRepository`) — mantém a lógica de negócio desacoplada do Qdrant/provider de embeddings.
 
 ### Primeiros endpoints (MVP, antes de qualquer feature extra)
 
