@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	geminiModel   = "text-embedding-004"
+	geminiModel   = "gemini-embedding-001"
 	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel + ":embedContent"
 )
 
@@ -38,7 +38,7 @@ type embedResponse struct {
 }
 
 // NoteToEmbedding converts a Note's text into a vector using the Gemini
-// embeddings API (model text-embedding-004, free tier). Requires the
+// embeddings API (model gemini-embedding-001, free tier). Requires the
 // GEMINI_API_KEY environment variable to be set.
 func NoteToEmbedding(note domain.Note) ([]float32, error) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
