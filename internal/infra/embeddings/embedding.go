@@ -13,9 +13,13 @@ import (
 	"github.com/Kevinmso/notz-search/internal/domain"
 )
 
-const (
-	geminiModel   = "gemini-embedding-001"
+const geminiModel = "gemini-embedding-001"
+
+// geminiBaseURL and httpClient are package-level vars (not consts) so tests
+// can point them at an httptest.Server instead of the real Gemini API.
+var (
 	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel + ":embedContent"
+	httpClient    = http.DefaultClient
 )
 
 type embedRequest struct {
@@ -66,7 +70,7 @@ func NoteToEmbedding(note domain.Note) ([]float32, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-goog-api-key", apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", domain.ErrEmbeddingGeneration, err)
 	}
