@@ -20,31 +20,67 @@ func NewNoteRepository(client *qdrant.Client) *NoteRepository {
 	return &NoteRepository{client:client}
 }
 
-func (r *NoteRepository) Upsert(note domain.Note) error {
-	emb, err := embeddings.NoteToEmbedding(note)
-	if err != nil {
-		return fmt.Errorf("%w: %w", domain.ErrEmbeddingGeneration, err)
-	}
-
+// noteToPayload converts a Note's fields (all but ID and the embedding vector,
+// which are carried separately in a Qdrant point) into a Qdrant payload map.
+func noteToPayload(note domain.Note) map[string]*qdrant.Value {
 	linksTo := make([]interface{}, len(note.LinksTo))
 	for i, link := range note.LinksTo {
 		linksTo[i] = link
 	}
 
-	payload := qdrant.NewValueMap(map[string]any{
+	return qdrant.NewValueMap(map[string]any{
 		"title":      note.Title,
 		"text":       note.Text,
 		"links_to":   linksTo,
 		"created_at": note.CreatedAt.Format(time.RFC3339),
 		"updated_at": note.UpdatedAt.Format(time.RFC3339),
 	})
+}
+
+// scoredPointToNote converts a Qdrant search result back into a Note.
+// It returns domain.ErrInvalidPayload if a timestamp field can't be parsed.
+func scoredPointToNote(sp *qdrant.ScoredPoint) (domain.Note, error) {
+	payload := sp.Payload
+
+	linksTo := make([]string, 0)
+	if list := payload["links_to"].GetListValue(); list != nil {
+		for _, v := range list.Values {
+			linksTo = append(linksTo, v.GetStringValue())
+		}
+	}
+
+	createdAt, err := time.Parse(time.RFC3339, payload["created_at"].GetStringValue())
+	if err != nil {
+		return domain.Note{}, fmt.Errorf("%w: created_at: %w", domain.ErrInvalidPayload, err)
+	}
+
+	updatedAt, err := time.Parse(time.RFC3339, payload["updated_at"].GetStringValue())
+	if err != nil {
+		return domain.Note{}, fmt.Errorf("%w: updated_at: %w", domain.ErrInvalidPayload, err)
+	}
+
+	return domain.Note{
+		ID:        sp.Id.GetUuid(),
+		Title:     payload["title"].GetStringValue(),
+		Text:      payload["text"].GetStringValue(),
+		LinksTo:   linksTo,
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	}, nil
+}
+
+func (r *NoteRepository) Upsert(note domain.Note) error {
+	emb, err := embeddings.NoteToEmbedding(note)
+	if err != nil {
+		return fmt.Errorf("%w: %w", domain.ErrEmbeddingGeneration, err)
+	}
 
 	// create Qdrant points before upsert
 	points := []*qdrant.PointStruct{
 		{
 			Id:      qdrant.NewIDUUID(note.ID),
 			Vectors: qdrant.NewVectors(emb...),
-			Payload: payload,
+			Payload: noteToPayload(note),
 		},
 	}
 
@@ -72,33 +108,11 @@ func (r *NoteRepository) Search(vector []float32, limit int) ([]domain.Note, err
 
 	notes := make([]domain.Note, len(scoredPoints))
 	for i, sp := range scoredPoints {
-		payload := sp.Payload
-
-		linksTo := make([]string, 0)
-		if list := payload["links_to"].GetListValue(); list != nil {
-			for _, v := range list.Values {
-				linksTo = append(linksTo, v.GetStringValue())
-			}
-		}
-
-		createdAt, err := time.Parse(time.RFC3339, payload["created_at"].GetStringValue())
+		note, err := scoredPointToNote(sp)
 		if err != nil {
-			return nil, fmt.Errorf("%w: created_at: %w", domain.ErrInvalidPayload, err)
+			return nil, err
 		}
-
-		updatedAt, err := time.Parse(time.RFC3339, payload["updated_at"].GetStringValue())
-		if err != nil {
-			return nil, fmt.Errorf("%w: updated_at: %w", domain.ErrInvalidPayload, err)
-		}
-
-		notes[i] = domain.Note{
-			ID:        sp.Id.GetUuid(),
-			Title:     payload["title"].GetStringValue(),
-			Text:      payload["text"].GetStringValue(),
-			LinksTo:   linksTo,
-			CreatedAt: createdAt,
-			UpdatedAt: updatedAt,
-		}
+		notes[i] = note
 	}
 
 	return notes, nil
