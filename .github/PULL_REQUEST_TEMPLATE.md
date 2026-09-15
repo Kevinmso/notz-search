@@ -11,9 +11,9 @@
 - [ ] 📝 Documentação
 - [ ] 🔧 Infra / CI-CD
 
-## Task Jira
+## Task
 
-[XXX-000](https://link-do-jira/browse/XXX-000)
+XXX-000
 
 ## Issue relacionada
 
