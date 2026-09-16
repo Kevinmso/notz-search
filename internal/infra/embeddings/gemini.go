@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/Kevinmso/notz-search/internal/domain"
@@ -15,12 +14,7 @@ import (
 
 const geminiModel = "gemini-embedding-001"
 
-// geminiBaseURL and httpClient are package-level vars (not consts) so tests
-// can point them at an httptest.Server instead of the real Gemini API.
-var (
-	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel + ":embedContent"
-	httpClient    = http.DefaultClient
-)
+const geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel + ":embedContent"
 
 type embedRequest struct {
 	Model   string       `json:"model"`
@@ -41,12 +35,26 @@ type embedResponse struct {
 	} `json:"embedding"`
 }
 
-// NoteToEmbedding converts a Note's text into a vector using the Gemini
-// embeddings API (model gemini-embedding-001, free tier). Requires the
-// GEMINI_API_KEY environment variable to be set.
-func NoteToEmbedding(note domain.Note) ([]float32, error) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
+// GeminiProvider implements domain.EmbeddingProvider using the Gemini
+// embeddings API (model gemini-embedding-001, free tier).
+type GeminiProvider struct {
+	apiKey     string
+	baseURL    string
+	httpClient *http.Client
+}
+
+// NewGeminiProvider builds a Gemini-backed embedding provider. apiKey is
+// required; Embed returns domain.ErrEmbeddingGeneration if it's empty.
+func NewGeminiProvider(apiKey string) *GeminiProvider {
+	return &GeminiProvider{
+		apiKey:     apiKey,
+		baseURL:    geminiBaseURL,
+		httpClient: http.DefaultClient,
+	}
+}
+
+func (p *GeminiProvider) Embed(note domain.Note) ([]float32, error) {
+	if p.apiKey == "" {
 		return nil, fmt.Errorf("%w: GEMINI_API_KEY is not set", domain.ErrEmbeddingGeneration)
 	}
 
@@ -63,14 +71,14 @@ func NoteToEmbedding(note domain.Note) ([]float32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, geminiBaseURL, bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", domain.ErrEmbeddingGeneration, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-goog-api-key", apiKey)
+	req.Header.Set("x-goog-api-key", p.apiKey)
 
-	resp, err := httpClient.Do(req)
+	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", domain.ErrEmbeddingGeneration, err)
 	}

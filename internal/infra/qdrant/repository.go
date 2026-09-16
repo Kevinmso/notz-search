@@ -6,18 +6,18 @@ import (
 	"time"
 
 	"github.com/Kevinmso/notz-search/internal/domain"
-	"github.com/Kevinmso/notz-search/internal/infra/embeddings"
 	"github.com/qdrant/go-client/qdrant"
 )
 
 const COLLECTION_NAME = "notes"
 
 type NoteRepository struct {
-	client *qdrant.Client // qdrant real client lib
+	client   *qdrant.Client // qdrant real client lib
+	embedder domain.EmbeddingProvider
 }
 
-func NewNoteRepository(client *qdrant.Client) *NoteRepository {
-	return &NoteRepository{client:client}
+func NewNoteRepository(client *qdrant.Client, embedder domain.EmbeddingProvider) *NoteRepository {
+	return &NoteRepository{client: client, embedder: embedder}
 }
 
 // noteToPayload converts a Note's fields (all but ID and the embedding vector,
@@ -70,7 +70,7 @@ func scoredPointToNote(sp *qdrant.ScoredPoint) (domain.Note, error) {
 }
 
 func (r *NoteRepository) Upsert(note domain.Note) error {
-	emb, err := embeddings.NoteToEmbedding(note)
+	emb, err := r.embedder.Embed(note)
 	if err != nil {
 		return fmt.Errorf("%w: %w", domain.ErrEmbeddingGeneration, err)
 	}
@@ -117,4 +117,3 @@ func (r *NoteRepository) Search(vector []float32, limit int) ([]domain.Note, err
 
 	return notes, nil
 }
-
