@@ -5,52 +5,37 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/Kevinmso/notz-search/internal/domain"
 )
 
-// withTestServer points geminiBaseURL and httpClient at an httptest.Server
-// for the duration of the test, restoring the originals afterwards.
-func withTestServer(t *testing.T, handler http.HandlerFunc) {
+// newTestProvider builds a GeminiProvider pointed at an httptest.Server
+// instead of the real Gemini API.
+func newTestProvider(t *testing.T, apiKey string, handler http.HandlerFunc) *GeminiProvider {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
-	originalURL := geminiBaseURL
-	originalClient := httpClient
-	geminiBaseURL = server.URL
-	httpClient = server.Client()
-	t.Cleanup(func() {
-		geminiBaseURL = originalURL
-		httpClient = originalClient
-	})
+	return &GeminiProvider{
+		apiKey:     apiKey,
+		baseURL:    server.URL,
+		httpClient: server.Client(),
+	}
 }
 
-func withAPIKey(t *testing.T, key string) {
-	t.Helper()
-	original := os.Getenv("GEMINI_API_KEY")
-	os.Setenv("GEMINI_API_KEY", key)
-	t.Cleanup(func() {
-		os.Setenv("GEMINI_API_KEY", original)
-	})
-}
+func TestGeminiProvider_Embed_MissingAPIKey(t *testing.T) {
+	provider := NewGeminiProvider("")
 
-func TestNoteToEmbedding_MissingAPIKey(t *testing.T) {
-	withAPIKey(t, "")
-
-	_, err := NoteToEmbedding(domain.Note{Title: "t", Text: "x"})
+	_, err := provider.Embed(domain.Note{Title: "t", Text: "x"})
 	if !errors.Is(err, domain.ErrEmbeddingGeneration) {
 		t.Fatalf("expected error to wrap domain.ErrEmbeddingGeneration, got %v", err)
 	}
 }
 
-func TestNoteToEmbedding_Success(t *testing.T) {
-	withAPIKey(t, "test-key")
-
+func TestGeminiProvider_Embed_Success(t *testing.T) {
 	var receivedReq embedRequest
-	withTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	provider := newTestProvider(t, "test-key", func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("x-goog-api-key"); got != "test-key" {
 			t.Errorf("x-goog-api-key header = %q, want %q", got, "test-key")
 		}
@@ -67,7 +52,7 @@ func TestNoteToEmbedding_Success(t *testing.T) {
 	})
 
 	note := domain.Note{Title: "Título", Text: "Conteúdo da nota"}
-	emb, err := NoteToEmbedding(note)
+	emb, err := provider.Embed(note)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -88,29 +73,25 @@ func TestNoteToEmbedding_Success(t *testing.T) {
 	}
 }
 
-func TestNoteToEmbedding_APIError(t *testing.T) {
-	withAPIKey(t, "test-key")
-
-	withTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+func TestGeminiProvider_Embed_APIError(t *testing.T) {
+	provider := newTestProvider(t, "test-key", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`{"error":{"message":"invalid API key"}}`))
 	})
 
-	_, err := NoteToEmbedding(domain.Note{Title: "t", Text: "x"})
+	_, err := provider.Embed(domain.Note{Title: "t", Text: "x"})
 	if !errors.Is(err, domain.ErrEmbeddingGeneration) {
 		t.Fatalf("expected error to wrap domain.ErrEmbeddingGeneration, got %v", err)
 	}
 }
 
-func TestNoteToEmbedding_InvalidJSONResponse(t *testing.T) {
-	withAPIKey(t, "test-key")
-
-	withTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+func TestGeminiProvider_Embed_InvalidJSONResponse(t *testing.T) {
+	provider := newTestProvider(t, "test-key", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("not json"))
 	})
 
-	_, err := NoteToEmbedding(domain.Note{Title: "t", Text: "x"})
+	_, err := provider.Embed(domain.Note{Title: "t", Text: "x"})
 	if !errors.Is(err, domain.ErrEmbeddingGeneration) {
 		t.Fatalf("expected error to wrap domain.ErrEmbeddingGeneration, got %v", err)
 	}
