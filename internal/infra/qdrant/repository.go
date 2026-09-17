@@ -20,6 +20,32 @@ func NewNoteRepository(client *qdrant.Client, embedder domain.EmbeddingProvider)
 	return &NoteRepository{client: client, embedder: embedder}
 }
 
+// EnsureCollection creates the notes collection if it doesn't already exist,
+// sized for vectors of vectorSize dimensions compared by cosine distance.
+// It's a no-op if the collection is already there.
+func (r *NoteRepository) EnsureCollection(ctx context.Context, vectorSize int) error {
+	exists, err := r.client.CollectionExists(ctx, COLLECTION_NAME)
+	if err != nil {
+		return fmt.Errorf("%w: %w", domain.ErrEnsureCollection, err)
+	}
+	if exists {
+		return nil
+	}
+
+	err = r.client.CreateCollection(ctx, &qdrant.CreateCollection{
+		CollectionName: COLLECTION_NAME,
+		VectorsConfig: qdrant.NewVectorsConfig(&qdrant.VectorParams{
+			Size:     uint64(vectorSize),
+			Distance: qdrant.Distance_Cosine,
+		}),
+	})
+	if err != nil {
+		return fmt.Errorf("%w: %w", domain.ErrEnsureCollection, err)
+	}
+
+	return nil
+}
+
 // noteToPayload converts a Note's fields (all but ID and the embedding vector,
 // which are carried separately in a Qdrant point) into a Qdrant payload map.
 func noteToPayload(note domain.Note) map[string]*qdrant.Value {

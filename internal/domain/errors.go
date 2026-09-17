@@ -15,4 +15,8 @@ var (
 	// ErrInvalidPayload indicates a note read back from the vector store has a
 	// malformed payload (e.g. an unparseable timestamp).
 	ErrInvalidPayload = errors.New("invalid note payload")
+
+	// ErrEnsureCollection indicates the vector store's collection could not
+	// be checked for existence or created.
+	ErrEnsureCollection = errors.New("failed to ensure collection exists")
 )

@@ -6,4 +6,8 @@ package domain
 // domain and repository layers.
 type EmbeddingProvider interface {
 	Embed(note Note) ([]float32, error)
+	// Dimensions returns the length of the vectors Embed produces. The
+	// vector store needs it upfront to create a collection with a matching
+	// fixed size.
+	Dimensions() int
 }
