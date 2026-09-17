@@ -35,7 +35,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"id\": \"nota-1\",\n  \"title\": \"Minha primeira nota\",\n  \"text\": \"Conteúdo de exemplo pra gerar o embedding.\",\n  \"links_to\": [\"nota-2\", \"nota-3\"]\n}"
+					"raw": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"title\": \"Minha primeira nota\",\n  \"text\": \"Conteúdo de exemplo pra gerar o embedding.\",\n  \"links_to\": [\"nota-2\", \"nota-3\"]\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/notes/index",
