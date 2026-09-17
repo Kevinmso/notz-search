@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -47,6 +48,7 @@ func (h *NoteHandler) IndexNotes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.s.IndexNote(note); err != nil {
+		log.Printf("failed to index note %q: %v", note.ID, err)
 		http.Error(w, "failed to index note", http.StatusInternalServerError)
 		return
 	}
@@ -73,12 +75,14 @@ func (h *NoteHandler) SearchNotes(w http.ResponseWriter, r *http.Request) {
 
 	notes, err := h.s.Search(query, limit)
 	if err != nil {
+		log.Printf("failed to search notes (q=%q, limit=%d): %v", query, limit, err)
 		http.Error(w, "failed to search notes", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(notes); err != nil {
+		log.Printf("failed to encode search response: %v", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 	}
 }
