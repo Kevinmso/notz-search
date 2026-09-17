@@ -16,6 +16,9 @@ const geminiModel = "gemini-embedding-001"
 
 const geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel + ":embedContent"
 
+// geminiDimensions is gemini-embedding-001's default output vector size.
+const geminiDimensions = 3072
+
 type embedRequest struct {
 	Model   string       `json:"model"`
 	Content embedContent `json:"content"`
@@ -95,4 +98,8 @@ func (p *GeminiProvider) Embed(note domain.Note) ([]float32, error) {
 	}
 
 	return out.Embedding.Values, nil
+}
+
+func (p *GeminiProvider) Dimensions() int {
+	return geminiDimensions
 }
