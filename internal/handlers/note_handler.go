@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/Kevinmso/notz-search/internal/domain"
 	"github.com/Kevinmso/notz-search/internal/service"
 )
 
@@ -14,6 +16,42 @@ type NoteHandler struct {
 
 func NewNoteHandler(s *service.NoteService) *NoteHandler {
 	return &NoteHandler{s: s}
+}
+
+type indexNoteRequest struct {
+	ID      string   `json:"id"`
+	Title   string   `json:"title"`
+	Text    string   `json:"text"`
+	LinksTo []string `json:"links_to"`
+}
+
+func (h *NoteHandler) IndexNotes(w http.ResponseWriter, r *http.Request) {
+	var req indexNoteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Text == "" {
+		http.Error(w, "text is required", http.StatusBadRequest)
+		return
+	}
+
+	note := domain.Note{
+		ID:        req.ID,
+		Title:     req.Title,
+		Text:      req.Text,
+		LinksTo:   req.LinksTo,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if err := h.s.IndexNote(note); err != nil {
+		http.Error(w, "failed to index note", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (h *NoteHandler) SearchNotes(w http.ResponseWriter, r *http.Request) {
