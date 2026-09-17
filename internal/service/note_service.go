@@ -1,7 +1,9 @@
-package usecase
+package service
 
 import "github.com/Kevinmso/notz-search/internal/domain"
 
+// NoteService orchestrates embedding generation and note storage/retrieval,
+// keeping that coordination out of both the domain and the infra adapters.
 type NoteService struct {
 	repo     domain.NoteRepository
 	embedder domain.EmbeddingProvider
