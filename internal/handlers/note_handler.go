@@ -9,6 +9,7 @@ import (
 
 	"github.com/Kevinmso/notz-search/internal/domain"
 	"github.com/Kevinmso/notz-search/internal/service"
+	"github.com/google/uuid"
 )
 
 type NoteHandler struct {
@@ -35,6 +36,11 @@ func (h *NoteHandler) IndexNotes(w http.ResponseWriter, r *http.Request) {
 
 	if req.Text == "" {
 		http.Error(w, "text is required", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := uuid.Parse(req.ID); err != nil {
+		http.Error(w, "id must be a valid UUID", http.StatusBadRequest)
 		return
 	}
 
