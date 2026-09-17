@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -58,6 +59,10 @@ func main() {
 	}
 
 	noteRepository := qdrant.NewNoteRepository(qdrantClient)
+	if err := noteRepository.EnsureCollection(context.Background(), embedder.Dimensions()); err != nil {
+		log.Fatalf("failed to ensure qdrant collection: %v", err)
+	}
+
 	noteService := service.NewNoteService(noteRepository, embedder)
 	noteHandler := handlers.NewNoteHandler(noteService)
 
