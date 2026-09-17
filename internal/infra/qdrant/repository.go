@@ -12,12 +12,11 @@ import (
 const COLLECTION_NAME = "notes"
 
 type NoteRepository struct {
-	client   *qdrant.Client // qdrant real client lib
-	embedder domain.EmbeddingProvider
+	client *qdrant.Client // qdrant real client lib
 }
 
-func NewNoteRepository(client *qdrant.Client, embedder domain.EmbeddingProvider) *NoteRepository {
-	return &NoteRepository{client: client, embedder: embedder}
+func NewNoteRepository(client *qdrant.Client) *NoteRepository {
+	return &NoteRepository{client: client}
 }
 
 // EnsureCollection creates the notes collection if it doesn't already exist,
@@ -95,22 +94,16 @@ func scoredPointToNote(sp *qdrant.ScoredPoint) (domain.Note, error) {
 	}, nil
 }
 
-func (r *NoteRepository) Upsert(note domain.Note) error {
-	emb, err := r.embedder.Embed(note)
-	if err != nil {
-		return fmt.Errorf("%w: %w", domain.ErrEmbeddingGeneration, err)
-	}
-
-	// create Qdrant points before upsert
+func (r *NoteRepository) Upsert(note domain.Note, vector []float32) error {
 	points := []*qdrant.PointStruct{
 		{
 			Id:      qdrant.NewIDUUID(note.ID),
-			Vectors: qdrant.NewVectors(emb...),
+			Vectors: qdrant.NewVectors(vector...),
 			Payload: noteToPayload(note),
 		},
 	}
 
-	_, err = r.client.Upsert(context.Background(), &qdrant.UpsertPoints{
+	_, err := r.client.Upsert(context.Background(), &qdrant.UpsertPoints{
 		CollectionName: COLLECTION_NAME,
 		Points:         points,
 	})
