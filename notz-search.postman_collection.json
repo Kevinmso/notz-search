@@ -1,0 +1,70 @@
+{
+	"info": {
+		"name": "notz-search",
+		"description": "Endpoints do search-service do Notz.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/health",
+					"host": ["{{baseUrl}}"],
+					"path": ["health"]
+				}
+			}
+		},
+		{
+			"name": "Index Note",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"id\": \"nota-1\",\n  \"title\": \"Minha primeira nota\",\n  \"text\": \"Conteúdo de exemplo pra gerar o embedding.\",\n  \"links_to\": [\"nota-2\", \"nota-3\"]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/notes/index",
+					"host": ["{{baseUrl}}"],
+					"path": ["notes", "index"]
+				}
+			}
+		},
+		{
+			"name": "Search Notes",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/search?q=exemplo&limit=10",
+					"host": ["{{baseUrl}}"],
+					"path": ["search"],
+					"query": [
+						{
+							"key": "q",
+							"value": "exemplo"
+						},
+						{
+							"key": "limit",
+							"value": "10"
+						}
+					]
+				}
+			}
+		}
+	]
+}
