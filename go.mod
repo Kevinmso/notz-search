@@ -1,16 +1,17 @@
 module github.com/Kevinmso/notz-search
 
-go 1.22.2
+go 1.27.0
 
-require github.com/go-chi/chi/v5 v5.0.12
+toolchain go1.27.1
 
 require (
+	github.com/go-chi/chi/v5 v5.0.12
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/qdrant/go-client v1.15.1
 )
 
 require (
-	github.com/google/uuid v1.6.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
