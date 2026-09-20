@@ -19,9 +19,15 @@ const geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/"
 // geminiDimensions is gemini-embedding-001's default output vector size.
 const geminiDimensions = 3072
 
+const (
+	geminiTaskDocument = "RETRIEVAL_DOCUMENT"
+	geminiTaskQuery    = "RETRIEVAL_QUERY"
+)
+
 type embedRequest struct {
-	Model   string       `json:"model"`
-	Content embedContent `json:"content"`
+	Model    string       `json:"model"`
+	TaskType string       `json:"taskType"`
+	Content  embedContent `json:"content"`
 }
 
 type embedContent struct {
@@ -56,15 +62,27 @@ func NewGeminiProvider(apiKey string) *GeminiProvider {
 	}
 }
 
+// Embed embeds a note as a document to be searched against.
 func (p *GeminiProvider) Embed(note domain.Note) ([]float32, error) {
+	return p.embed(note.Title+"\n\n"+note.Text, geminiTaskDocument)
+}
+
+// EmbedQuery embeds a search query using Gemini's retrieval-query task type,
+// the counterpart of the retrieval-document type used by Embed.
+func (p *GeminiProvider) EmbedQuery(query string) ([]float32, error) {
+	return p.embed(query, geminiTaskQuery)
+}
+
+func (p *GeminiProvider) embed(text, taskType string) ([]float32, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("%w: GEMINI_API_KEY is not set", domain.ErrEmbeddingGeneration)
 	}
 
 	reqBody, err := json.Marshal(embedRequest{
-		Model: "models/" + geminiModel,
+		Model:    "models/" + geminiModel,
+		TaskType: taskType,
 		Content: embedContent{
-			Parts: []embedPart{{Text: note.Title + "\n\n" + note.Text}},
+			Parts: []embedPart{{Text: text}},
 		},
 	})
 	if err != nil {

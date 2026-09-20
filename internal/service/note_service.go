@@ -24,7 +24,7 @@ func (s *NoteService) IndexNote(note domain.Note) error {
 
 // Search embeds query and returns the most similar notes, up to limit.
 func (s *NoteService) Search(query string, limit int) ([]domain.Note, error) {
-	vector, err := s.embedder.Embed(domain.Note{Text: query})
+	vector, err := s.embedder.EmbedQuery(query)
 	if err != nil {
 		return nil, err
 	}

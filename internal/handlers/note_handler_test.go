@@ -22,6 +22,7 @@ type fakeEmbedder struct {
 }
 
 func (f *fakeEmbedder) Embed(domain.Note) ([]float32, error) { return f.vector, f.err }
+func (f *fakeEmbedder) EmbedQuery(string) ([]float32, error) { return f.vector, f.err }
 func (f *fakeEmbedder) Dimensions() int                      { return len(f.vector) }
 
 type fakeRepo struct {

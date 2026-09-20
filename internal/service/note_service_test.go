@@ -8,14 +8,22 @@ import (
 )
 
 type fakeEmbedder struct {
-	vector []float32
-	err    error
-	calls  []domain.Note
+	vector      []float32
+	err         error
+	calls       []domain.Note
+	queryVector []float32
+	queryErr    error
+	queryCalls  []string
 }
 
 func (f *fakeEmbedder) Embed(note domain.Note) ([]float32, error) {
 	f.calls = append(f.calls, note)
 	return f.vector, f.err
+}
+
+func (f *fakeEmbedder) EmbedQuery(query string) ([]float32, error) {
+	f.queryCalls = append(f.queryCalls, query)
+	return f.queryVector, f.queryErr
 }
 
 func (f *fakeEmbedder) Dimensions() int { return len(f.vector) }
@@ -110,7 +118,7 @@ func TestIndexNote_UpsertErrorIsPropagated(t *testing.T) {
 
 func TestSearch_EmbedsQueryThenSearches(t *testing.T) {
 	want := []domain.Note{{ID: "a"}, {ID: "b"}}
-	embedder := &fakeEmbedder{vector: []float32{0.3, 0.4}}
+	embedder := &fakeEmbedder{vector: []float32{9, 9}, queryVector: []float32{0.3, 0.4}}
 	repo := &fakeRepo{searchResult: want}
 	svc := NewNoteService(repo, embedder)
 
@@ -119,14 +127,17 @@ func TestSearch_EmbedsQueryThenSearches(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(embedder.calls) != 1 || embedder.calls[0].Text != "minha pergunta" {
-		t.Fatalf("the query should be embedded as the note text, got %+v", embedder.calls)
+	if len(embedder.queryCalls) != 1 || embedder.queryCalls[0] != "minha pergunta" {
+		t.Fatalf("the raw query should go through EmbedQuery once, got %+v", embedder.queryCalls)
+	}
+	if len(embedder.calls) != 0 {
+		t.Errorf("Search must not embed the query as a document, got %d Embed calls", len(embedder.calls))
 	}
 	if repo.searchCalls != 1 || repo.searchedLimit != 5 {
 		t.Errorf("Search called %d times with limit %d, want 1 call with limit 5", repo.searchCalls, repo.searchedLimit)
 	}
-	if !equalVectors(repo.searchedVec, embedder.vector) {
-		t.Errorf("searched vector = %v, want %v", repo.searchedVec, embedder.vector)
+	if !equalVectors(repo.searchedVec, embedder.queryVector) {
+		t.Errorf("searched vector = %v, want the query vector %v", repo.searchedVec, embedder.queryVector)
 	}
 	if len(got) != len(want) || got[0].ID != "a" || got[1].ID != "b" {
 		t.Errorf("results = %+v, want %+v", got, want)
@@ -134,7 +145,7 @@ func TestSearch_EmbedsQueryThenSearches(t *testing.T) {
 }
 
 func TestSearch_EmbedErrorSkipsSearch(t *testing.T) {
-	embedder := &fakeEmbedder{err: domain.ErrEmbeddingGeneration}
+	embedder := &fakeEmbedder{queryErr: domain.ErrEmbeddingGeneration}
 	repo := &fakeRepo{}
 	svc := NewNoteService(repo, embedder)
 
@@ -148,7 +159,7 @@ func TestSearch_EmbedErrorSkipsSearch(t *testing.T) {
 }
 
 func TestSearch_RepoErrorIsPropagated(t *testing.T) {
-	embedder := &fakeEmbedder{vector: []float32{0.1}}
+	embedder := &fakeEmbedder{queryVector: []float32{0.1}}
 	repo := &fakeRepo{searchErr: domain.ErrSearch}
 	svc := NewNoteService(repo, embedder)
 

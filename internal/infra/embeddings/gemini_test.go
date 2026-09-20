@@ -96,3 +96,46 @@ func TestGeminiProvider_Embed_InvalidJSONResponse(t *testing.T) {
 		t.Fatalf("expected error to wrap domain.ErrEmbeddingGeneration, got %v", err)
 	}
 }
+func TestGeminiProvider_Embed_UsesDocumentTaskType(t *testing.T) {
+	var received embedRequest
+	provider := newTestProvider(t, "test-key", func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&received)
+		w.Write([]byte(`{"embedding":{"values":[0.1,0.2]}}`))
+	})
+
+	if _, err := provider.Embed(domain.Note{Title: "t", Text: "x"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if received.TaskType != "RETRIEVAL_DOCUMENT" {
+		t.Errorf("taskType = %q, want RETRIEVAL_DOCUMENT", received.TaskType)
+	}
+}
+
+func TestGeminiProvider_EmbedQuery_UsesQueryTaskTypeAndRawText(t *testing.T) {
+	var received embedRequest
+	provider := newTestProvider(t, "test-key", func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&received)
+		w.Write([]byte(`{"embedding":{"values":[0.1,0.2]}}`))
+	})
+
+	emb, err := provider.EmbedQuery("sobremesa com cenoura")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(emb) != 2 || emb[0] != 0.1 || emb[1] != 0.2 {
+		t.Errorf("embedding = %v, want [0.1 0.2]", emb)
+	}
+	if received.TaskType != "RETRIEVAL_QUERY" {
+		t.Errorf("taskType = %q, want RETRIEVAL_QUERY", received.TaskType)
+	}
+	if len(received.Content.Parts) != 1 || received.Content.Parts[0].Text != "sobremesa com cenoura" {
+		t.Errorf("parts = %+v, want the raw query only", received.Content.Parts)
+	}
+}
+
+func TestGeminiProvider_EmbedQuery_MissingAPIKey(t *testing.T) {
+	_, err := NewGeminiProvider("").EmbedQuery("q")
+	if !errors.Is(err, domain.ErrEmbeddingGeneration) {
+		t.Fatalf("expected error to wrap domain.ErrEmbeddingGeneration, got %v", err)
+	}
+}
