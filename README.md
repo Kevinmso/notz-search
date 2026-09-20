@@ -30,15 +30,27 @@ apareça nela.
 
 ## Como funciona
 
-```mermaid
-flowchart LR
-    C["Cliente"] -->|"POST /notes/index"| H["Handlers HTTP"]
-    C -->|"GET /search"| H
-    H --> S["NoteService"]
-    S -->|"Embed, EmbedQuery"| E["EmbeddingProvider"]
-    S -->|"Upsert, Search"| R["NoteRepository"]
-    E -.->|"implementado por"| CG["Cohere ou Gemini"]
-    R -.->|"implementado por"| Q["Qdrant"]
+```text
+                     Cliente
+                        |  POST /notes/index   GET /search
+                        v
++-----------------------------------------------+
+|                 Handlers HTTP                 |
++-----------------------------------------------+
+                        |
+                        v
++-----------------------------------------------+
+|                  NoteService                  |
++-----------------------------------------------+
+           | Embed / EmbedQuery      | Upsert / Search
+           v                         v
++---------------------+   +---------------------+
+|  EmbeddingProvider  |   |    NoteRepository   |   <- interfaces (domain)
++---------------------+   +---------------------+
+           ^ implementado por        ^ implementado por
++---------------------+   +---------------------+
+|   Cohere / Gemini   |   |        Qdrant       |   <- adapters (infra)
++---------------------+   +---------------------+
 ```
 
 **Indexação** (`POST /notes/index`)
