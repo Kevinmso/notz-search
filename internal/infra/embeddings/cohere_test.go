@@ -108,3 +108,47 @@ func TestCohereProvider_Embed_NoEmbeddingsReturned(t *testing.T) {
 		t.Fatalf("expected error to wrap domain.ErrEmbeddingGeneration, got %v", err)
 	}
 }
+
+func TestCohereProvider_Embed_UsesDocumentInputType(t *testing.T) {
+	var received cohereEmbedRequest
+	provider := newTestCohereProvider(t, "test-key", func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&received)
+		w.Write([]byte(`{"embeddings":{"float":[[0.1,0.2]]}}`))
+	})
+
+	if _, err := provider.Embed(domain.Note{Title: "t", Text: "x"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if received.InputType != "search_document" {
+		t.Errorf("input_type = %q, want search_document", received.InputType)
+	}
+}
+
+func TestCohereProvider_EmbedQuery_UsesQueryInputTypeAndRawText(t *testing.T) {
+	var received cohereEmbedRequest
+	provider := newTestCohereProvider(t, "test-key", func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&received)
+		w.Write([]byte(`{"embeddings":{"float":[[0.1,0.2]]}}`))
+	})
+
+	emb, err := provider.EmbedQuery("sobremesa com cenoura")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(emb) != 2 || emb[0] != 0.1 || emb[1] != 0.2 {
+		t.Errorf("embedding = %v, want [0.1 0.2]", emb)
+	}
+	if received.InputType != "search_query" {
+		t.Errorf("input_type = %q, want search_query", received.InputType)
+	}
+	if len(received.Texts) != 1 || received.Texts[0] != "sobremesa com cenoura" {
+		t.Errorf("texts = %q, want the raw query only", received.Texts)
+	}
+}
+
+func TestCohereProvider_EmbedQuery_MissingAPIKey(t *testing.T) {
+	_, err := NewCohereProvider("").EmbedQuery("q")
+	if !errors.Is(err, domain.ErrEmbeddingGeneration) {
+		t.Fatalf("expected error to wrap domain.ErrEmbeddingGeneration, got %v", err)
+	}
+}

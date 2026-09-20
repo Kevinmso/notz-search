@@ -17,6 +17,9 @@ const (
 	cohereBaseURL = "https://api.cohere.com/v2/embed"
 	// cohereDimensions is embed-multilingual-v3.0's output vector size.
 	cohereDimensions = 1024
+
+	cohereInputDocument = "search_document"
+	cohereInputQuery    = "search_query"
 )
 
 type cohereEmbedRequest struct {
@@ -50,15 +53,26 @@ func NewCohereProvider(apiKey string) *CohereProvider {
 	}
 }
 
+// Embed embeds a note as a document to be searched against.
 func (p *CohereProvider) Embed(note domain.Note) ([]float32, error) {
+	return p.embed(note.Title+"\n\n"+note.Text, cohereInputDocument)
+}
+
+// EmbedQuery embeds a search query. Cohere's v3 models are asymmetric, so
+// queries must use the search_query input type to match search_document ones.
+func (p *CohereProvider) EmbedQuery(query string) ([]float32, error) {
+	return p.embed(query, cohereInputQuery)
+}
+
+func (p *CohereProvider) embed(text, inputType string) ([]float32, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("%w: COHERE_API_KEY is not set", domain.ErrEmbeddingGeneration)
 	}
 
 	reqBody, err := json.Marshal(cohereEmbedRequest{
 		Model:          cohereModel,
-		Texts:          []string{note.Title + "\n\n" + note.Text},
-		InputType:      "search_document",
+		Texts:          []string{text},
+		InputType:      inputType,
 		EmbeddingTypes: []string{"float"},
 	})
 	if err != nil {
