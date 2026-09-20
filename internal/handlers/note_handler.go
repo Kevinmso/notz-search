@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -18,6 +19,21 @@ type NoteHandler struct {
 
 func NewNoteHandler(s *service.NoteService) *NoteHandler {
 	return &NoteHandler{s: s}
+}
+
+// serviceErrorStatus maps a service-layer error to the HTTP status that best
+// describes it. Failures of the embedding provider or the vector store are
+// upstream problems (502); anything else, including a malformed payload read
+// back from our own index, is an internal error (500).
+func serviceErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, domain.ErrEmbeddingGeneration),
+		errors.Is(err, domain.ErrUpsert),
+		errors.Is(err, domain.ErrSearch):
+		return http.StatusBadGateway
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 type indexNoteRequest struct {
@@ -55,7 +71,7 @@ func (h *NoteHandler) IndexNotes(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.s.IndexNote(note); err != nil {
 		log.Printf("failed to index note %q: %v", note.ID, err)
-		http.Error(w, "failed to index note", http.StatusInternalServerError)
+		http.Error(w, "failed to index note", serviceErrorStatus(err))
 		return
 	}
 
@@ -72,8 +88,8 @@ func (h *NoteHandler) SearchNotes(w http.ResponseWriter, r *http.Request) {
 	limit := 10
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
-		if err != nil {
-			http.Error(w, "invalid limit", http.StatusBadRequest)
+		if err != nil || parsed < 1 {
+			http.Error(w, "limit must be a positive integer", http.StatusBadRequest)
 			return
 		}
 		limit = parsed
@@ -82,7 +98,7 @@ func (h *NoteHandler) SearchNotes(w http.ResponseWriter, r *http.Request) {
 	notes, err := h.s.Search(query, limit)
 	if err != nil {
 		log.Printf("failed to search notes (q=%q, limit=%d): %v", query, limit, err)
-		http.Error(w, "failed to search notes", http.StatusInternalServerError)
+		http.Error(w, "failed to search notes", serviceErrorStatus(err))
 		return
 	}
 
