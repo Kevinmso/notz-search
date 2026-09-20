@@ -32,10 +32,13 @@ apareça nela.
 
 ```mermaid
 flowchart LR
-    C["Cliente<br/>(curl, Postman, notes-service)"] -->|"POST /notes/index<br/>GET /search"| H["Handlers HTTP<br/>(Chi)"]
+    C["Cliente"] -->|"POST /notes/index"| H["Handlers HTTP"]
+    C -->|"GET /search"| H
     H --> S["NoteService"]
-    S -->|"Embed / EmbedQuery"| E["EmbeddingProvider<br/>(Cohere ou Gemini)"]
-    S -->|"Upsert / Search"| R["NoteRepository<br/>(Qdrant)"]
+    S -->|"Embed, EmbedQuery"| E["EmbeddingProvider"]
+    S -->|"Upsert, Search"| R["NoteRepository"]
+    E -.->|"implementado por"| CG["Cohere ou Gemini"]
+    R -.->|"implementado por"| Q["Qdrant"]
 ```
 
 **Indexação** (`POST /notes/index`)
