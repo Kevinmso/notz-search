@@ -1,6 +1,6 @@
 # notz-search
 
-[![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.27%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 Serviço de **busca semântica** escrito em Go para as notas do Obsidian. Em vez de procurar por palavras
@@ -140,7 +140,8 @@ internal/
 
 ### Pré-requisitos
 
-- **Go 1.22.2** ou superior
+- **Go 1.27** ou superior. Com Go 1.21 ou mais novo já instalado, não é preciso instalar o 1.27 à mão: o
+  `go.mod` declara a versão e o próprio `go` baixa o toolchain correto na primeira execução
 - Uma instância do **Qdrant**: local via Docker ou em nuvem
 - Uma chave de API de um provider de embeddings. A [Cohere](https://dashboard.cohere.com/api-keys) tem
   *trial key* gratuita e é o provider padrão
