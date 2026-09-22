@@ -277,18 +277,15 @@ Uma busca sem resultados devolve `[]`.
 ```json
 [
   {
-    "ID": "550e8400-e29b-41d4-a716-446655440000",
-    "Title": "Bolo de cenoura",
-    "Text": "Receita de bolo de cenoura: bata cenoura, ovos e óleo no liquidificador...",
-    "LinksTo": ["receitas"],
-    "CreatedAt": "2026-09-20T10:20:34-03:00",
-    "UpdatedAt": "2026-09-20T10:20:34-03:00"
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "Bolo de cenoura",
+    "text": "Receita de bolo de cenoura: bata cenoura, ovos e óleo no liquidificador...",
+    "links_to": ["receitas"],
+    "created_at": "2026-09-20T10:20:34-03:00",
+    "updated_at": "2026-09-20T10:20:34-03:00"
   }
 ]
 ```
-
-> As chaves da resposta ainda usam os nomes dos campos Go (`ID`, `LinksTo`...), enquanto o corpo do
-> `POST /notes/index` usa `snake_case`. A padronização do formato de resposta está no roadmap de API.
 
 **Erros**
 
