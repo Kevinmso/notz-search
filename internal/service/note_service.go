@@ -30,3 +30,7 @@ func (s *NoteService) Search(query string, limit int) ([]domain.Note, error) {
 	}
 	return s.repo.Search(vector, limit)
 }
+
+func (s *NoteService) DeleteNote(id string) error {
+	return s.repo.Delete(id)
+}
