@@ -10,6 +10,7 @@ import (
 
 	"github.com/Kevinmso/notz-search/internal/domain"
 	"github.com/Kevinmso/notz-search/internal/service"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -29,7 +30,8 @@ func serviceErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, domain.ErrEmbeddingGeneration),
 		errors.Is(err, domain.ErrUpsert),
-		errors.Is(err, domain.ErrSearch):
+		errors.Is(err, domain.ErrSearch),
+		errors.Is(err, domain.ErrDelete):
 		return http.StatusBadGateway
 	default:
 		return http.StatusInternalServerError
@@ -107,4 +109,20 @@ func (h *NoteHandler) SearchNotes(w http.ResponseWriter, r *http.Request) {
 		log.Printf("failed to encode search response: %v", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 	}
+}
+
+func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(id); err != nil {
+		http.Error(w, "id must be a valid UUID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.s.DeleteNote(id); err != nil {
+		log.Printf("failed to delete note %q: %v", id, err)
+		http.Error(w, "failed to delete note", serviceErrorStatus(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

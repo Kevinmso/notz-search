@@ -32,6 +32,7 @@ type fakeRepo struct {
 	upsertErr    error
 	searchResult []domain.Note
 	searchErr    error
+	deleteErr    error
 
 	upsertCalls   int
 	upsertedNote  domain.Note
@@ -39,6 +40,8 @@ type fakeRepo struct {
 	searchCalls   int
 	searchedVec   []float32
 	searchedLimit int
+	deleteCalls   int
+	deletedID     string
 }
 
 func (f *fakeRepo) Upsert(note domain.Note, vector []float32) error {
@@ -53,6 +56,12 @@ func (f *fakeRepo) Search(vector []float32, limit int) ([]domain.Note, error) {
 	f.searchedVec = vector
 	f.searchedLimit = limit
 	return f.searchResult, f.searchErr
+}
+
+func (f *fakeRepo) Delete(id string) error {
+	f.deleteCalls++
+	f.deletedID = id
+	return f.deleteErr
 }
 
 func equalVectors(a, b []float32) bool {
@@ -166,5 +175,28 @@ func TestSearch_RepoErrorIsPropagated(t *testing.T) {
 	_, err := svc.Search("q", 10)
 	if !errors.Is(err, domain.ErrSearch) {
 		t.Fatalf("expected domain.ErrSearch, got %v", err)
+	}
+}
+
+func TestDeleteNote_DelegatesToRepo(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := NewNoteService(repo, &fakeEmbedder{})
+
+	if err := svc.DeleteNote("id-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if repo.deleteCalls != 1 || repo.deletedID != "id-1" {
+		t.Errorf("Delete called %d time(s) with id %q, want 1 call with id-1", repo.deleteCalls, repo.deletedID)
+	}
+}
+
+func TestDeleteNote_RepoErrorIsPropagated(t *testing.T) {
+	repo := &fakeRepo{deleteErr: domain.ErrDelete}
+	svc := NewNoteService(repo, &fakeEmbedder{})
+
+	err := svc.DeleteNote("id-1")
+	if !errors.Is(err, domain.ErrDelete) {
+		t.Fatalf("expected domain.ErrDelete, got %v", err)
 	}
 }

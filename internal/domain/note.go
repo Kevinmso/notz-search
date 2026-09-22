@@ -17,4 +17,5 @@ type Note struct {
 type NoteRepository interface {
 	Upsert(note Note, vector []float32) error
 	Search(vector []float32, limit int) ([]Note, error)
+	Delete(id string) error
 }
