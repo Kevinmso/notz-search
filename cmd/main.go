@@ -74,6 +74,7 @@ func main() {
 
 	r.Post("/notes/index", noteHandler.IndexNotes)
 	r.Get("/search", noteHandler.SearchNotes)
+	r.Delete("/notes/{id}", noteHandler.DeleteNote)
 
 	log.Println("listening on :8080")
 	if err := http.ListenAndServe(":8080", r); err != nil {
