@@ -12,6 +12,7 @@ import (
 
 	"github.com/Kevinmso/notz-search/internal/domain"
 	"github.com/Kevinmso/notz-search/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 const validUUID = "550e8400-e29b-41d4-a716-446655440000"
@@ -29,11 +30,14 @@ type fakeRepo struct {
 	upsertErr    error
 	searchResult []domain.Note
 	searchErr    error
+	deleteErr    error
 
 	upsertCalls   int
 	upsertedNote  domain.Note
 	searchCalls   int
 	searchedLimit int
+	deleteCalls   int
+	deletedID     string
 }
 
 func (f *fakeRepo) Upsert(note domain.Note, _ []float32) error {
@@ -46,6 +50,12 @@ func (f *fakeRepo) Search(_ []float32, limit int) ([]domain.Note, error) {
 	f.searchCalls++
 	f.searchedLimit = limit
 	return f.searchResult, f.searchErr
+}
+
+func (f *fakeRepo) Delete(id string) error {
+	f.deleteCalls++
+	f.deletedID = id
+	return f.deleteErr
 }
 
 func newHandler(repo *fakeRepo, embedder *fakeEmbedder) *NoteHandler {
@@ -68,6 +78,20 @@ func getSearch(h *NoteHandler, params url.Values) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, "/search?"+params.Encode(), nil)
 	rec := httptest.NewRecorder()
 	h.SearchNotes(rec, req)
+	return rec
+}
+
+// deleteNote routes the request through a real chi router, since DeleteNote
+// reads the {id} path param via chi.URLParam, which only gets populated when
+// the request actually goes through chi's routing (not when calling the
+// handler method directly with a bare httptest.NewRequest).
+func deleteNote(h *NoteHandler, id string) *httptest.ResponseRecorder {
+	router := chi.NewRouter()
+	router.Delete("/notes/{id}", h.DeleteNote)
+
+	req := httptest.NewRequest(http.MethodDelete, "/notes/"+id, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
 	return rec
 }
 
@@ -268,6 +292,61 @@ func TestSearchNotes_ErrorMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := getSearch(newHandler(tt.repo, tt.embedder), url.Values{"q": {"pergunta"}})
+
+			if rec.Code != tt.want {
+				t.Errorf("status = %d, want %d", rec.Code, tt.want)
+			}
+		})
+	}
+}
+
+func TestDeleteNote_Success(t *testing.T) {
+	h, repo := newHealthyHandler()
+
+	rec := deleteNote(h, validUUID)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+	if repo.deleteCalls != 1 || repo.deletedID != validUUID {
+		t.Errorf("Delete called %d time(s) with id %q, want 1 call with %q", repo.deleteCalls, repo.deletedID, validUUID)
+	}
+}
+
+func TestDeleteNote_InvalidUUID(t *testing.T) {
+	h, repo := newHealthyHandler()
+
+	rec := deleteNote(h, "nota-1")
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	if repo.deleteCalls != 0 {
+		t.Errorf("Delete must not run for an invalid id, got %d calls", repo.deleteCalls)
+	}
+}
+
+func TestDeleteNote_ErrorMapping(t *testing.T) {
+	tests := []struct {
+		name string
+		repo *fakeRepo
+		want int
+	}{
+		{
+			name: "vector store failure is a bad gateway",
+			repo: &fakeRepo{deleteErr: fmt.Errorf("%w: qdrant down", domain.ErrDelete)},
+			want: http.StatusBadGateway,
+		},
+		{
+			name: "unrecognized failure is an internal error",
+			repo: &fakeRepo{deleteErr: errors.New("something unexpected")},
+			want: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := deleteNote(newHandler(tt.repo, &fakeEmbedder{}), validUUID)
 
 			if rec.Code != tt.want {
 				t.Errorf("status = %d, want %d", rec.Code, tt.want)
