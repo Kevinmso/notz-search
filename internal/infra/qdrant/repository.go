@@ -136,3 +136,15 @@ func (r *NoteRepository) Search(vector []float32, limit int) ([]domain.Note, err
 
 	return notes, nil
 }
+
+func (r *NoteRepository) Delete(id string) error {
+	_, err := r.client.Delete(context.Background(), &qdrant.DeletePoints{
+		CollectionName: COLLECTION_NAME,
+		Points:         qdrant.NewPointsSelector(qdrant.NewIDUUID(id)),
+	})
+	if err != nil {
+		return fmt.Errorf("%w: %w", domain.ErrDelete, err)
+	}
+
+	return nil
+}

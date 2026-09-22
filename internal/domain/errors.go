@@ -19,4 +19,7 @@ var (
 	// ErrEnsureCollection indicates the vector store's collection could not
 	// be checked for existence or created.
 	ErrEnsureCollection = errors.New("failed to ensure collection exists")
+
+	// ErrDelete indicates the vector store failed to delete a note.
+	ErrDelete = errors.New("failed to delete note")
 )
