@@ -1,0 +1,103 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Permissões mínimas: os jobs só precisam ler o código.
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI (build e testes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configurar Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Instalar dependências
+        run: go mod download
+
+      - name: Verificar formatação (gofmt)
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Arquivos fora do padrão gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Análise estática (go vet)
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Testes
+        run: go test -race -cover ./...
+
+      # Valida o Dockerfile antes do CD: só builda a imagem localmente,
+      # sem push, sem login em registry e sem secrets.
+      - name: Build da imagem Docker
+        run: docker build --tag notz-search:ci .
+
+  cd:
+    name: CD (deploy no Render)
+    needs: ci
+    # Só em push na main: em pull_request o CI roda, mas não há deploy.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Evita dois deploys simultâneos; o mais novo espera o atual terminar.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      APP_URL: ${{ vars.APP_URL }}
+    steps:
+      - name: Validar configuração do deploy
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Secret RENDER_DEPLOY_HOOK_URL não configurado"
+            exit 1
+          fi
+          if [ -z "$APP_URL" ]; then
+            echo "::error::Variável de repositório APP_URL não configurada"
+            exit 1
+          fi
+
+      - name: Disparar deploy no Render
+        run: |
+          # --fail: erro HTTP derruba o step. A URL do hook é segredo e não é impressa.
+          curl --fail --silent --show-error --max-time 30 \
+            -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
+          echo "Deploy disparado no Render."
+
+      - name: Verificar aplicação publicada (GET /health)
+        run: |
+          url="${APP_URL%/}/health"
+          attempts=30
+          delay=20
+          echo "Aguardando ${url} responder 'ok' (até $((attempts * delay))s)..."
+          for i in $(seq 1 "$attempts"); do
+            body="$(curl --silent --max-time 10 "$url" || true)"
+            if [ "$body" = "ok" ]; then
+              echo "Tentativa $i/$attempts: aplicação saudável."
+              exit 0
+            fi
+            echo "Tentativa $i/$attempts: ainda não respondeu 'ok'. Nova tentativa em ${delay}s."
+            sleep "$delay"
+          done
+          echo "::error::${url} não respondeu 'ok' a tempo"
+          exit 1

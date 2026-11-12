@@ -206,7 +206,7 @@ está no `.gitignore`: **nunca versione chaves de API**.
 | `QDRANT_API_KEY` | não | vazio | Chave do cluster. Necessária no Qdrant Cloud, desnecessária no Docker local |
 | `QDRANT_USE_TLS` | não | `false` | `true` para conectar via TLS (Qdrant Cloud exige) |
 
-Valores fixos no código: servidor HTTP em `:8080`, porta gRPC do Qdrant `6334` e collection `notes`.
+Valores fixos no código: porta gRPC do Qdrant `6334` e collection `notes`. O servidor HTTP escuta na porta da variável `PORT` (padrão `8080`).
 
 ### Usando o Qdrant Cloud
 
