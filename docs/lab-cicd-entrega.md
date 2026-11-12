@@ -183,9 +183,21 @@ Arquivos de apoio criados: `Dockerfile` (multi-stage, imagem final distroless n�
 - **Problema encontrado:** nenhum novo. O `docker build` só vai rodar de fato no GitHub Actions.
 - **Alteração:** `.github/workflows/ci-cd.yml` e `cmd/main_test.go` (novo).
 
-### P5 e seguintes — Execução real no GitHub e no Render
+### P5 — Primeira execução real da CI (PR #21)
 
-[PREENCHER: se a primeira execução no GitHub Actions falhar, registre aqui, para cada nova tentativa, o prompt usado, o erro, a correção e o resultado. Se passar de primeira, escreva isso e remova esta instrução.]
+- **Prompt:** nenhum prompt novo. Pedi ao Claude Code: "Ja coloquei as variaveis no render, sobe o código executa a pipeline e preenche o documento". Ele organizou as mudanças em 5 commits, deu push da branch e abriu o PR #21 (https://github.com/Kevinmso/notz-search/pull/21).
+- **Resultado:** a CI passou de primeira, em 1m31s, com todos os steps verdes: checkout, setup-go, `go mod download`, `gofmt`, `go vet`, build, testes e **build da imagem Docker**. O job `cd` apareceu como *skipped*, que é o comportamento esperado em pull request. Execução: https://github.com/Kevinmso/notz-search/actions/runs/43202289505
+- **Problema encontrado:** nenhum. O build da imagem, que era a parte sem validação local, funcionou no GitHub.
+- **Alteração:** nenhuma.
+
+### P6 — Primeira execução do CD: o deploy no Render falhou (push na `main`)
+
+- **Prompt:** colei no Claude Code o log do step de verificação ("Tentativa 1/30: ainda não respondeu 'ok'...", e depois o log de build do Render) com a mensagem "ta dando isso ae" e "deu isso ae".
+- **Resultado:** o Claude Code diagnosticou que o serviço no Render tinha sido criado com o runtime **Go** nativo. O Render rodou `go build -tags netgo -ldflags '-s -w' -o app` na raiz do repositório, onde não há arquivos `.go` (o `main` está em `cmd/`), e falhou com `no Go files`. Como o app nunca subiu, o `/health` não respondeu. O Dockerfile não estava sendo usado.
+- **Problema encontrado:** configuração do serviço no Render incompatível com o projeto. A pipeline em si estava correta: o CI passou, o hook foi disparado (`Disparar deploy no Render: success`) e o step de verificação detectou que a aplicação não estava no ar, em vez de dar um falso sucesso.
+- **Alteração (manual, no painel do Render):** [PREENCHER: o que você mudou no Render, por exemplo o Build Command para `go build -tags netgo -ldflags '-s -w' -o app ./cmd` e o Start Command para `./app`, ou a recriação do serviço com runtime Docker].
+- **Resultado final:** depois da correção, a mesma execução do CD terminou com **sucesso** na tentativa 29/30 do health check (`aplicação saudável`), cerca de 13 minutos depois do disparo do hook. Execução: https://github.com/Kevinmso/notz-search/actions/runs/43202700548 (CI 1m50s, CD 13m06s). `GET https://notz-search.onrender.com/health` responde `ok`.
+- **Observação:** o sucesso veio com apenas uma tentativa de folga das 30. O limite de 10 minutos é curto para um primeiro deploy no plano gratuito do Render, e o health check não falha rápido quando o build do Render quebra.
 
 ## 6. Resumo final (itens pedidos pelo enunciado)
 
@@ -196,13 +208,15 @@ Arquivos de apoio criados: `Dockerfile` (multi-stage, imagem final distroless n�
    - O Dockerfile não podia ser testado localmente (sem Docker no ambiente).
    - A branch `main` local estava desatualizada.
    - O health check pode passar contra a versão antiga durante o deploy.
-   - [PREENCHER: problemas da execução real no GitHub e no Render].
+   - O serviço no Render foi criado com o runtime Go nativo e não com o Docker. O build falhou com `no Go files` e o CD só passou depois que o serviço foi corrigido no painel (P6).
+   - O health check ficou perto do limite: passou na tentativa 29 de 30.
 3. **Alterações necessárias:** `gofmt -w` em dois arquivos, leitura de `PORT` em `main.go` (com teste e atualização do README), `Dockerfile` e `.dockerignore`, step de `docker build` no CI e o próprio workflow.
 4. **Alterações feitas manualmente:** [PREENCHER: o que você fez à mão. Do que foi feito até aqui, nada foi manual: os arquivos foram escritos pelo subagente. Do seu lado ficam criar o serviço no Render, configurar o secret `RENDER_DEPLOY_HOOK_URL` e a variável `APP_URL`, abrir o PR e fazer o merge. Acrescente qualquer correção que você fizer.]
 5. **Como verifiquei que a pipeline funciona:**
    - **Local:** `gofmt -l .` sem saída; `go vet`, `go build` e `go test -race -cover ./...` passando; `actionlint` sem erros no workflow.
    - **Referências externas:** conferi com `gh api` que as actions existem, e nos registries que as imagens do Dockerfile existem.
-   - **No GitHub:** [PREENCHER: PR com a CI verde, e push na `main` com CI → CD verde, com os links das execuções].
+   - **No pull request:** o PR #21 rodou a CI e ela passou, com todos os steps verdes e o `cd` pulado (https://github.com/Kevinmso/notz-search/actions/runs/43202289505).
+   - **No push na `main`:** a execução do merge do PR #21 terminou com CI e CD verdes, e o log do step de verificação mostra `Tentativa 29/30: aplicação saudável` (https://github.com/Kevinmso/notz-search/actions/runs/43202700548).
    - **Aplicação publicada:** [PREENCHER: `curl` em `<URL>/health` respondendo `ok`, e o painel do Render mostrando o deploy disparado pelo hook].
 
 ## 7. Análise do processo
