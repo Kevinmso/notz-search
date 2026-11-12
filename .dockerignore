@@ -1,0 +1,25 @@
+# Segredos e config local: nunca entram na imagem
+.env
+.env.*
+!.env.example
+
+# Controle de versão e CI
+.git
+.gitignore
+.github
+
+# Artefatos e arquivos que não fazem parte do build
+/notz-search
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+docs
+postman
+*.md
+LICENSE
+Dockerfile
+.dockerignore
+.vscode
+.idea
