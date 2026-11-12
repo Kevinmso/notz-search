@@ -36,6 +36,15 @@ func newEmbeddingProvider() (domain.EmbeddingProvider, error) {
 	}
 }
 
+// port returns the port the HTTP server listens on: the PORT env var
+// (injected by platforms such as Render) or 8080 when it is not set.
+func port() string {
+	if p := os.Getenv("PORT"); p != "" {
+		return p
+	}
+	return "8080"
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("no .env file found, reading config from the environment")
@@ -76,8 +85,9 @@ func main() {
 	r.Get("/search", noteHandler.SearchNotes)
 	r.Delete("/notes/{id}", noteHandler.DeleteNote)
 
-	log.Println("listening on :8080")
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	addr := ":" + port()
+	log.Printf("listening on %s", addr)
+	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)
 	}
 }
